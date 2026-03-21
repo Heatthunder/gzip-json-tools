@@ -9,6 +9,7 @@ import os
 import tempfile
 import argparse
 import hashlib
+import sys
 from pathlib import Path
 from shutil import copy2
 from time import time
@@ -16,6 +17,7 @@ from time import time
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
+        # Read in 64kb chunks to prevent memory spikes on massive files
         for chunk in iter(lambda: f.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
@@ -124,14 +126,24 @@ def info(gz_path: Path) -> dict[str, str | int]:
     with gzip.open(gz_path, 'rt', encoding='utf-8') as f:
         text = f.read()
 
-    obj = json.loads(text)
-    minified = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    # Default fallback values in case JSON is corrupted
+    json_size = len(text.encode('utf-8'))
+    keys_top_level = -1
+
+    try:
+        obj = json.loads(text)
+        minified = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+        json_size = len(minified)
+        keys_top_level = len(obj) if isinstance(obj, dict) else -1
+    except json.JSONDecodeError:
+        pass # Will return the fallback values and still provide file size/hash
+
     return {
         "path": str(gz_path.resolve()),
         "gz_size": gz_path.stat().st_size,
-        "json_size": len(minified),
+        "json_size": json_size,
         "sha256_gz": _sha256(gz_path),
-        "keys_top_level": len(obj) if isinstance(obj, dict) else -1,
+        "keys_top_level": keys_top_level,
     }
 
 def main():
@@ -186,4 +198,4 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    exit(main())
+    sys.exit(main())
