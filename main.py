@@ -56,6 +56,8 @@ def pack(
         out_gz = Path(f"{json_path}.gz")
     if not 0 <= compresslevel <= 9:
         raise ValueError("compresslevel must be between 0 and 9")
+    # Ensure destination directory exists so temp/atomic writes work reliably.
+    out_gz.parent.mkdir(parents=True, exist_ok=True)
 
     # Read JSON and validate before doing any compression work
     text = json_path.read_text(encoding='utf-8')
@@ -67,14 +69,21 @@ def pack(
     # Minify into bytes
     packed = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
 
-    # Atomic write: Write to temp file in the same directory, then replace
-    temp_fd, temp_path = tempfile.mkstemp(dir=out_gz.parent, prefix="._tmp_pack_")
-    os.close(temp_fd) 
-    temp_file = Path(temp_path)
+    # Atomic write: write to a temp file in the destination directory, then replace.
+    # NamedTemporaryFile with delete=False keeps Windows compatibility for reopen/replace.
+    with tempfile.NamedTemporaryFile(
+        mode='wb',
+        delete=False,
+        dir=out_gz.parent,
+        prefix="tmp_pack_",
+        suffix=".gz",
+    ) as tmp_file:
+        temp_file = Path(tmp_file.name)
 
     try:
-        with gzip.GzipFile(temp_file, 'wb', compresslevel=compresslevel, mtime=mtime) as f:
-            f.write(packed)
+        with temp_file.open('wb') as raw_f:
+            with gzip.GzipFile(fileobj=raw_f, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
+                f.write(packed)
         os.replace(temp_file, out_gz)
     finally:
         # Cleanup in case os.replace failed
