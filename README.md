@@ -35,6 +35,32 @@ python --version
 python3 main.py -h
 ```
 
+## Quick start (first time with your game save)
+
+If your game already creates a `.json.gz` save, inspect it directly:
+
+```bash
+python3 main.py info your_save.json.gz
+```
+
+If your game save is plain JSON (not gzipped) and you want to create gzip first:
+
+```bash
+python3 main.py pack your_save.json -o your_save.json.gz --mtime 0
+```
+
+Then verify the roundtrip behavior:
+
+```bash
+python3 main.py roundtrip your_save.json.gz
+```
+
+And create a backup before editing:
+
+```bash
+python3 main.py backup your_save.json.gz
+```
+
 ## Usage
 
 ### Extract a `.json.gz` file to JSON
@@ -82,6 +108,7 @@ info      Print metadata and integrity info
 - Always run `backup` before manual save edits.
 - Use `--mtime 0` while packing for reproducible gzip output.
 - If byte-for-byte output differs after repacking, use `roundtrip` to confirm the JSON data still matches.
+- Keep an untouched original save in a separate folder so you can recover quickly if an edit breaks loading.
 
 ## Troubleshooting
 
