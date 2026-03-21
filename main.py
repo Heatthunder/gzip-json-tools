@@ -8,9 +8,17 @@ import json
 import os
 import tempfile
 import argparse
+import hashlib
 from pathlib import Path
 from shutil import copy2
 from time import time
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 def extract(gz_path: Path, out_path: Path | None = None, pretty: bool = True) -> Path:
     if out_path is None:
@@ -34,11 +42,18 @@ def extract(gz_path: Path, out_path: Path | None = None, pretty: bool = True) ->
         else:
             json.dump(obj, f, separators=(',', ':'), ensure_ascii=False)
 
-    return out_path
+    return out_path.resolve()
 
-def pack(json_path: Path, out_gz: Path | None = None, compresslevel: int = 6) -> Path:
+def pack(
+    json_path: Path,
+    out_gz: Path | None = None,
+    compresslevel: int = 6,
+    mtime: int = 0,
+) -> Path:
     if out_gz is None:
         out_gz = Path(f"{json_path}.gz")
+    if not 0 <= compresslevel <= 9:
+        raise ValueError("compresslevel must be between 0 and 9")
 
     # Read JSON and validate before doing any compression work
     text = json_path.read_text(encoding='utf-8')
@@ -56,7 +71,7 @@ def pack(json_path: Path, out_gz: Path | None = None, compresslevel: int = 6) ->
     temp_file = Path(temp_path)
 
     try:
-        with gzip.open(temp_file, 'wb', compresslevel=compresslevel) as f:
+        with gzip.GzipFile(temp_file, 'wb', compresslevel=compresslevel, mtime=mtime) as f:
             f.write(packed)
         os.replace(temp_file, out_gz)
     finally:
@@ -64,7 +79,7 @@ def pack(json_path: Path, out_gz: Path | None = None, compresslevel: int = 6) ->
         if temp_file.exists():
             temp_file.unlink()
 
-    return out_gz
+    return out_gz.resolve()
 
 def backup(gz_path: Path) -> Path:
     if not gz_path.exists():
@@ -102,6 +117,23 @@ def roundtrip(gz_path: Path) -> bool:
             
         return orig_obj == new_obj
 
+def info(gz_path: Path) -> dict[str, str | int]:
+    if not gz_path.exists():
+        raise FileNotFoundError(f"File not found: {gz_path}")
+
+    with gzip.open(gz_path, 'rt', encoding='utf-8') as f:
+        text = f.read()
+
+    obj = json.loads(text)
+    minified = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    return {
+        "path": str(gz_path.resolve()),
+        "gz_size": gz_path.stat().st_size,
+        "json_size": len(minified),
+        "sha256_gz": _sha256(gz_path),
+        "keys_top_level": len(obj) if isinstance(obj, dict) else -1,
+    }
+
 def main():
     parser = argparse.ArgumentParser(
         description="SaveGzip: A tool to extract, pack, verify, and backup gzipped JSON files."
@@ -111,9 +143,14 @@ def main():
     # Setup CLI commands
     extract_parser = subparsers.add_parser('extract', help='Extract a gzipped JSON file (pretty prints by default).')
     extract_parser.add_argument('file', type=Path, help='The .json.gz file to extract.')
+    extract_parser.add_argument('-o', '--output', type=Path, help='Optional output JSON path.')
+    extract_parser.add_argument('--no-pretty', action='store_true', help='Disable pretty JSON output.')
 
     pack_parser = subparsers.add_parser('pack', help='Pack a JSON file into a .gz file (minifies JSON).')
     pack_parser.add_argument('file', type=Path, help='The .json file to pack.')
+    pack_parser.add_argument('-o', '--output', type=Path, help='Optional output .gz path.')
+    pack_parser.add_argument('-l', '--level', type=int, default=6, help='gzip compression level (0-9).')
+    pack_parser.add_argument('--mtime', type=int, default=0, help='gzip mtime. Use 0 for reproducible builds.')
 
     backup_parser = subparsers.add_parser('backup', help='Create a timestamped backup copy of a file.')
     backup_parser.add_argument('file', type=Path, help='The file to backup.')
@@ -121,15 +158,18 @@ def main():
     roundtrip_parser = subparsers.add_parser('roundtrip', help='Extract -> Pack -> Verify equivalence.')
     roundtrip_parser.add_argument('file', type=Path, help='The .json.gz file to test.')
 
+    info_parser = subparsers.add_parser('info', help='Print metadata and integrity info for a .json.gz file.')
+    info_parser.add_argument('file', type=Path, help='The .json.gz file to inspect.')
+
     args = parser.parse_args()
 
     # Route commands
     try:
         if args.command == 'extract':
-            out = extract(args.file)
+            out = extract(args.file, out_path=args.output, pretty=not args.no_pretty)
             print(f"Successfully extracted to: {out}")
         elif args.command == 'pack':
-            out = pack(args.file)
+            out = pack(args.file, out_gz=args.output, compresslevel=args.level, mtime=args.mtime)
             print(f"Successfully packed to: {out}")
         elif args.command == 'backup':
             dest = backup(args.file)
@@ -137,6 +177,8 @@ def main():
         elif args.command == 'roundtrip':
             ok = roundtrip(args.file)
             print("Roundtrip OK: Data integrity verified." if ok else "Roundtrip mismatch: Data integrity failed.")
+        elif args.command == 'info':
+            print(json.dumps(info(args.file), indent=2))
     except Exception as e:
         print(f"Error: {e}")
         return 1
