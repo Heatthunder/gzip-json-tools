@@ -15,7 +15,7 @@ This utility provides a reliable "roundtrip" workflow for developers and modders
 ---
 
 ## Disclaimer
-**Use this tool at your own risk.** Modifying game saves can lead to data loss or character corruption. Always keep an original, untouched backup of your save files in a separate folder before using this utility. The authors are not responsible for any damage caused by the use of this software.
+**Use this tool at your own risk.** Modifying game saves can lead to data loss or character corruption. Always keep an original, untouched backup of your save files in a separate folder before using this utility. The author is not responsible for any damage caused by the use of this software.
 
 ---
 
@@ -93,6 +93,14 @@ python3 main.py extract file.json.gz -o file.json
 python3 main.py pack file.json -o file.json.gz --level 9 --mtime 0
 ```
 
+### Deterministic gzip output (CLI + Web)
+
+- **CLI**: `pack` supports `--mtime` and defaults to `0`, so repeated packing of
+  the same JSON produces stable gzip timestamps. Passing `--mtime 0` explicitly
+  is recommended for clarity in scripts/CI.
+- **Web (PyScript UI)**: JSON repacking uses deterministic packing with
+  `mtime=0` for JSON→gzip and JSON→Base64 flows.
+
 ### Verify roundtrip integrity
 
 ```bash
@@ -118,51 +126,13 @@ extract   Extract a gzipped JSON file (pretty output by default)
 pack      Pack a JSON file into gzip (minified JSON)
 backup    Create a timestamped backup copy of a file
 roundtrip Extract -> Pack -> Verify equivalence
-info        Print metadata and integrity info
-to-base64   Encode a file as Base64 text
-from-base64 Decode Base64 text into a file
-```
-
-
-## Base64 and pipeline examples
-
-### Windows PowerShell
-
-```powershell
-# Encode gzip bytes to Base64 and write to a text file
-python .\main.py to-base64 .\save.json.gz -o .\save.b64.txt
-
-# Decode from a positional Base64 value
-python .\main.py from-base64 "H4sIAAAAA..." -o .\restored.json.gz
-
-# Decode from stdin pipeline
-Get-Content .\save.b64.txt | python .\main.py from-base64 -o .\restored.json.gz
-```
-
-### macOS/Linux shell
-
-```bash
-# Encode gzip bytes to Base64 (stdout by default)
-python3 main.py to-base64 ./save.json.gz
-
-# Save long Base64 output to file
-python3 main.py to-base64 ./save.json.gz -o ./save.b64.txt
-
-# Decode using --input-file
-python3 main.py from-base64 --input-file ./save.b64.txt -o ./restored.json.gz
-```
-
-### Redirected pipelines
-
-```bash
-# Encode then decode using stdin fallback
-python3 main.py to-base64 ./save.json.gz | python3 main.py from-base64 -o ./restored.json.gz
+info      Print metadata and integrity info
 ```
 
 ## Tips for game-save workflows
 
 - Always run `backup` before manual save edits.
-- Use `--mtime 0` while packing for reproducible gzip output.
+- Use deterministic packing (`--mtime 0` in CLI; fixed `mtime=0` in web) for reproducible gzip output.
 - `extract` uses the embedded gzip original filename when available, but sanitizes it and falls back to the `.gz`-stripped name when unsafe.
 - Embedded filenames are read from the **first gzip member** only (concatenated multi-member `.gz` files are not fully scanned for naming metadata).
 - Filename rules can vary across filesystems; when embedded metadata is unsafe for the current platform, extraction falls back to the `.gz`-stripped filename.

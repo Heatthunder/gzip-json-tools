@@ -3,8 +3,6 @@
 SaveGzip.py - A utility to extract, pack, verify, and backup gzipped JSON files.
 """
 
-import base64
-import binascii
 import gzip
 import json
 import os
@@ -13,12 +11,59 @@ import argparse
 import hashlib
 import logging
 import sys
+import base64
+import binascii
 from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
 from time import time
 
+from core_logic import (
+    INVALID_BASE64_MESSAGE,
+    INVALID_GZIP_MESSAGE,
+    base64_to_json_text,
+    gz_bytes_to_base64,
+    json_text_to_base64,
+)
+
 logger = logging.getLogger(__name__)
+
+def _read_text_input(input_path: Path | None) -> str:
+    """Read text from a file or stdin when no file is provided."""
+    if input_path is None:
+        if sys.stdin.isatty():
+            raise ValueError("No Base64 input provided. Pass --input or pipe data via stdin.")
+        return sys.stdin.read()
+    return input_path.read_text(encoding="utf-8")
+
+
+def _normalize_base64_text(b64_text: str) -> str:
+    """Remove transport whitespace so wrapped Base64 still decodes reliably."""
+    return "".join(b64_text.split())
+
+
+def _write_bytes_output(output_path: Path, payload: bytes) -> Path:
+    """Write bytes payload to output path and return resolved path."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(payload)
+    return output_path.resolve()
+
+
+def _decode_base64_gzip_bytes(b64_text: str) -> bytes:
+    """Decode Base64 text to gzip bytes with strict Base64 + header checks.
+
+    This avoids full decompression in `b64-to-gz` so large/untrusted payloads
+    do not incur avoidable CPU cost during a pass-through conversion.
+    """
+    normalized = _normalize_base64_text(b64_text)
+    try:
+        gz_bytes = base64.b64decode(normalized, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(INVALID_BASE64_MESSAGE) from exc
+
+    if len(gz_bytes) < 2 or gz_bytes[:2] != b"\x1f\x8b":
+        raise ValueError(INVALID_GZIP_MESSAGE)
+    return gz_bytes
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -122,38 +167,6 @@ def _default_extract_path(gz_path: Path, embedded_name: str | None) -> Path:
     except ValueError:
         # Defensive fallback for any unsupported filename edge cases.
         return fallback
-
-
-
-def _read_base64_input(base64_arg: str | None, input_file: Path | None) -> str:
-    """Resolve Base64 text from arg, file, or stdin (in that order)."""
-    if base64_arg is not None:
-        return base64_arg.strip()
-
-    if input_file is not None:
-        return input_file.read_text(encoding="utf-8").strip()
-
-    stdin_text = sys.stdin.read().strip()
-    if stdin_text:
-        return stdin_text
-
-    raise ValueError("No Base64 input provided. Use BASE64_TEXT, --input-file, or stdin.")
-
-
-def _decode_base64_to_file(base64_text: str, output_path: Path) -> Path:
-    """Decode Base64 text and write resulting bytes to output_path."""
-    try:
-        decoded = base64.b64decode(base64_text, validate=True)
-    except binascii.Error as exc:
-        raise ValueError(f"Invalid Base64 input: {exc}") from exc
-
-    output_path.write_bytes(decoded)
-    return output_path.resolve()
-
-
-def _encode_file_to_base64(input_path: Path) -> str:
-    """Read bytes from input_path and return Base64 text."""
-    return base64.b64encode(input_path.read_bytes()).decode("ascii")
 
 def extract(gz_path: Path, out_path: Path | None = None, pretty: bool = True) -> Path:
     if out_path is None:
@@ -337,33 +350,19 @@ def main():
     info_parser = subparsers.add_parser('info', help='Print metadata and integrity info for a .json.gz file.')
     info_parser.add_argument('file', type=Path, help='The .json.gz file to inspect.')
 
-    to_b64_parser = subparsers.add_parser(
-        'to-base64',
-        help='Encode a file to Base64 (prints to stdout by default).'
-    )
-    to_b64_parser.add_argument('file', type=Path, help='The input file to encode.')
-    to_b64_parser.add_argument('-o', '--output', type=Path, help='Optional output text file for Base64 data.')
+    gz_to_b64_parser = subparsers.add_parser('gz-to-b64', help='Read .json.gz bytes and print Base64.')
+    gz_to_b64_parser.add_argument('file', type=Path, help='Input .json.gz file path.')
 
-    from_b64_parser = subparsers.add_parser(
-        'from-base64',
-        help='Decode Base64 text into a file (arg, --input-file, or stdin).'
-    )
-    from_b64_parser.add_argument(
-        'base64_text',
-        nargs='?',
-        help='Optional Base64 text. If omitted, --input-file or stdin is used.'
-    )
-    from_b64_parser.add_argument(
-        '--input-file',
-        type=Path,
-        help='Read Base64 text from a UTF-8 text file.'
-    )
-    from_b64_parser.add_argument(
-        '-o', '--output',
-        type=Path,
-        default=Path('decoded_output.bin'),
-        help='Output file for decoded bytes (default: decoded_output.bin).'
-    )
+    b64_to_gz_parser = subparsers.add_parser('b64-to-gz', help='Decode Base64 input and write .json.gz output.')
+    b64_to_gz_parser.add_argument('-i', '--input', type=Path, help='Optional Base64 text input file (default: stdin).')
+    b64_to_gz_parser.add_argument('-o', '--output', type=Path, required=True, help='Output .json.gz file path.')
+
+    b64_to_json_parser = subparsers.add_parser('b64-to-json', help='Decode Base64 input and output pretty JSON.')
+    b64_to_json_parser.add_argument('-i', '--input', type=Path, help='Optional Base64 text input file (default: stdin).')
+    b64_to_json_parser.add_argument('-o', '--output', type=Path, help='Optional JSON output file (default: stdout).')
+
+    json_to_b64_parser = subparsers.add_parser('json-to-b64', help='Read .json and print Base64 gz payload.')
+    json_to_b64_parser.add_argument('file', type=Path, help='Input .json file path.')
 
     # IDE debug sessions often start scripts without CLI args.
     # Print help and exit cleanly instead of raising argparse SystemExit(2).
@@ -389,19 +388,24 @@ def main():
             print("Roundtrip OK: Data integrity verified." if ok else "Roundtrip mismatch: Data integrity failed.")
         elif args.command == 'info':
             print(json.dumps(info(args.file), indent=2))
-        elif args.command == 'to-base64':
-            encoded = _encode_file_to_base64(args.file)
+        elif args.command == 'gz-to-b64':
+            print(gz_bytes_to_base64(args.file.read_bytes()))
+        elif args.command == 'b64-to-gz':
+            b64_text = _read_text_input(args.input)
+            out = _write_bytes_output(args.output, _decode_base64_gzip_bytes(b64_text))
+            print(f"Successfully wrote gzip to: {out}")
+        elif args.command == 'b64-to-json':
+            b64_text = _read_text_input(args.input)
+            pretty_json = base64_to_json_text(b64_text)
             if args.output:
-                args.output.write_text(encoded, encoding='utf-8')
-                print(f"Base64 written to: {args.output.resolve()}")
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_text(pretty_json, encoding='utf-8')
+                print(f"Successfully wrote JSON to: {args.output.resolve()}")
             else:
-                print(encoded)
-        elif args.command == 'from-base64':
-            if args.base64_text and args.input_file:
-                raise ValueError('Use either BASE64_TEXT or --input-file, not both.')
-            base64_text = _read_base64_input(args.base64_text, args.input_file)
-            out = _decode_base64_to_file(base64_text, args.output)
-            print(f"Decoded bytes written to: {out}")
+                print(pretty_json)
+        elif args.command == 'json-to-b64':
+            json_text = args.file.read_text(encoding='utf-8')
+            print(json_text_to_base64(json_text, filename=args.file.name, mtime=0))
     except Exception as e:
         print(f"Error: {e}")
         return 1
