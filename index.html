@@ -18,21 +18,35 @@
 
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: dark;
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
           sans-serif;
+        --bg: #0b1220;
+        --panel: #111a2b;
+        --panel-2: #182235;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --border: #334155;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --drop-bg: #0f172a;
+        --drop-bg-active: #172554;
       }
       body {
         margin: 0;
         padding: 1.25rem;
-        background: #f7f7f9;
-        color: #1f2937;
+        background: var(--bg);
+        color: var(--text);
       }
       .app {
         max-width: 900px;
         margin: 0 auto;
         display: grid;
         gap: 0.85rem;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem;
       }
       .row {
         display: flex;
@@ -45,19 +59,27 @@
         border-radius: 8px;
         padding: 0.55rem 0.9rem;
         cursor: pointer;
-        background: #2563eb;
+        background: var(--accent);
         color: #fff;
+      }
+      button:hover {
+        background: var(--accent-hover);
       }
       #editor,
       #base64-text {
         width: 100%;
         resize: vertical;
         padding: 0.75rem;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--border);
         border-radius: 8px;
+        background: var(--panel-2);
+        color: var(--text);
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
           "Liberation Mono", "Courier New", monospace;
         font-size: 0.9rem;
+      }
+      #file-upload {
+        color: var(--muted);
       }
       #editor {
         min-height: 330px;
@@ -68,31 +90,74 @@
       #status {
         min-height: 1.25rem;
         font-size: 0.95rem;
+        color: var(--text);
       }
       .section-title {
         font-size: 0.95rem;
         font-weight: 600;
+        color: var(--muted);
       }
       #dropzone {
-        border: 2px dashed #94a3b8;
+        border: 2px dashed var(--border);
         border-radius: 10px;
         padding: 1rem;
-        background: #eef2ff;
-        color: #334155;
+        background: var(--drop-bg);
+        color: var(--text);
       }
       #dropzone.is-active {
-        border-color: #2563eb;
-        background: #dbeafe;
+        border-color: var(--accent);
+        background: var(--drop-bg-active);
       }
       #dropzone ul {
         margin: 0.5rem 0 0;
         padding-left: 1.2rem;
+      }
+      .disclaimer-note {
+        margin: 0;
+        padding: 0.75rem;
+        border: 1px solid #7f1d1d;
+        border-radius: 8px;
+        background: #2b1010;
+        color: #fecaca;
+        font-size: 0.92rem;
+      }
+      .how-to-use {
+        margin: 0;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel-2);
+      }
+      .how-to-use h2 {
+        margin: 0 0 0.4rem;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+      .how-to-use ol {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+      .how-to-use li {
+        margin: 0.2rem 0;
       }
     </style>
   </head>
   <body>
     <main class="app">
       <h1>Save Editor</h1>
+      <p class="disclaimer-note">
+        <strong>Disclaimer:</strong> Use this tool at your own risk. Editing save
+        data can permanently corrupt files. Always keep a separate backup of the
+        original save before making any changes.
+      </p>
+      <section class="how-to-use" aria-label="How to use this web editor">
+        <h2>Quick how-to (Web)</h2>
+        <ol>
+          <li>Drop a <code>.json.gz</code> file, <code>.json</code> file, or Base64 text.</li>
+          <li>Edit the decoded JSON in the editor.</li>
+          <li>Use <strong>JSON → Base64</strong> or download a new <code>.json.gz</code> file.</li>
+        </ol>
+      </section>
 
       <div class="row">
         <input type="file" id="file-upload" accept=".gzip,.gz" />

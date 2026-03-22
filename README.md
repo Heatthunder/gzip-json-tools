@@ -101,6 +101,21 @@ python3 main.py pack file.json -o file.json.gz --level 9 --mtime 0
 - **Web (PyScript UI)**: JSON repacking uses deterministic packing with
   `mtime=0` for JSON→gzip and JSON→Base64 flows.
 
+### Web build updates
+
+- The web UI now uses a **dark theme** by default for reduced eye strain during
+  long editing sessions.
+- A visible **disclaimer note** is shown at the top of the web app to remind
+  users to keep backups and use save editing tools carefully.
+
+### Simple how-to-use guide (Web build)
+
+1. Open `index.html` in a PyScript-compatible environment and load the web UI.
+2. Drop a `.json.gz` file, `.json` file, or Base64 text into the dropzone.
+3. Edit the JSON in the editor as needed.
+4. Convert using **JSON → Base64**, **Base64 → JSON**, or download a rebuilt
+   `.json.gz` file using the download buttons.
+
 ### Verify roundtrip integrity
 
 ```bash
