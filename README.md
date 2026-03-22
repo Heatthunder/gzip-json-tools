@@ -1,15 +1,40 @@
 # Gzip-encoder-decoder-python-system
 
-A small command-line utility to extract, pack, verify, and inspect gzipped JSON save files.
+**A lightweight command-line utility for managing gzipped JSON save files.**
+
+## Purpose
+Many modern games and applications store data as **minified JSON** compressed with **Gzip** to save space. This makes manual editing nearly impossible without the right tools.
+
+**Specifically built for:** [Text-Adventure-Game-REBUILT](https://github.com/Heatthunder/Text-Adventure-Game-REBUILT)
+
+This utility provides a reliable "roundtrip" workflow for developers and modders to:
+1. **Decompress** and "pretty-print" JSON for easy manual editing.
+2. **Recompress** edited JSON back into the specific Gzip format the application expects.
+3. **Verify** that the data remains valid and uncorrupted through automated integrity checks.
+
+---
+
+## Disclaimer
+**Use this tool at your own risk.** Modifying game saves can lead to data loss or character corruption. Always keep an original, untouched backup of your save files in a separate folder before using this utility. The authors are not responsible for any damage caused by the use of this software.
+
+---
 
 ## Requirements
 
-- Python 3.10+ (3.11+ recommended)
-- No third-party packages required
+* **Python 3.10+** (3.11+ recommended)
+* **Standard Library Only**: No third-party packages (like `pip install`) are required.
 
 ## Run outside your IDE
 
 Open a terminal (Command Prompt, PowerShell, macOS Terminal, Linux shell), then:
+
+1. **Go to the project folder:**
+```bash
+cd /path/to/Gzip-encoder-decoder-python-system
+
+1. **Go to the project folder:**
+   ```bash
+   cd /path/to/Gzip-encoder-decoder-python-system
 
 1. Go to the project folder:
 
