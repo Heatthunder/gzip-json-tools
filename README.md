@@ -15,7 +15,7 @@ This utility provides a reliable "roundtrip" workflow for developers and modders
 ---
 
 ## Disclaimer
-**Use this tool at your own risk.** Modifying game saves can lead to data loss or character corruption. Always keep an original, untouched backup of your save files in a separate folder before using this utility. The authors are not responsible for any damage caused by the use of this software.
+**Use this tool at your own risk.** Modifying game saves can lead to data loss or character corruption. Always keep an original, untouched backup of your save files in a separate folder before using this utility. The author is not responsible for any damage caused by the use of this software.
 
 ---
 
