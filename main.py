@@ -31,6 +31,7 @@ def _gzip_original_filename(gz_path: Path) -> str | None:
         if len(header) < 10 or header[0:2] != b"\x1f\x8b":
             return None
 
+        # This inspects only the first gzip member header by design.
         flags = header[3]
 
         # Skip optional extra field.
@@ -53,10 +54,27 @@ def _gzip_original_filename(gz_path: Path) -> str | None:
                 try:
                     return name_bytes.decode("utf-8")
                 except UnicodeDecodeError:
+                    # Latin-1 fallback keeps compatibility with legacy producers.
+                    # If exact header-byte round-trip is ever required, preserve name_bytes.
                     return name_bytes.decode("latin-1")
 
     return None
 
+
+def _dir_is_writable(directory: Path) -> bool:
+    """Best-effort writable check used for clearer pack() warnings."""
+    probe: Path | None = None
+    try:
+        fd, name = tempfile.mkstemp(dir=directory, prefix=".write_probe_")
+        os.close(fd)
+        probe = Path(name)
+        return True
+    except OSError:
+        return False
+    finally:
+        if probe is not None:
+            with suppress(FileNotFoundError):
+                probe.unlink()
 
 
 def _default_extract_path(gz_path: Path, embedded_name: str | None) -> Path:
@@ -121,6 +139,12 @@ def pack(
         raise ValueError("compresslevel must be between 0 and 9")
     # Ensure destination directory exists so temp/atomic writes work reliably.
     out_gz.parent.mkdir(parents=True, exist_ok=True)
+    if not _dir_is_writable(out_gz.parent):
+        print(
+            f"Warning: Destination directory may be protected/unwritable: {out_gz.parent}. "
+            "Pack may fail due to antivirus or Controlled Folder Access restrictions.",
+            file=sys.stderr,
+        )
 
     # Read JSON and validate before doing any compression work
     text = json_path.read_text(encoding='utf-8')
