@@ -10,6 +10,7 @@ import tempfile
 import argparse
 import hashlib
 import sys
+from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
 from time import time
@@ -22,9 +23,45 @@ def _sha256(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+
+def _gzip_original_filename(gz_path: Path) -> str | None:
+    """Return the embedded gzip original filename, if present."""
+    with gz_path.open("rb") as f:
+        header = f.read(10)
+        if len(header) < 10 or header[0:2] != b"\x1f\x8b":
+            return None
+
+        flags = header[3]
+
+        # Skip optional extra field.
+        if flags & 0x04:
+            xlen_bytes = f.read(2)
+            if len(xlen_bytes) < 2:
+                return None
+            xlen = int.from_bytes(xlen_bytes, "little")
+            f.read(xlen)
+
+        # Read optional embedded original filename from the gzip header.
+        if flags & 0x08:
+            name_bytes = bytearray()
+            while True:
+                b = f.read(1)
+                if not b or b == b"\x00":
+                    break
+                name_bytes.extend(b)
+            if name_bytes:
+                return name_bytes.decode("latin-1")
+
+    return None
+
 def extract(gz_path: Path, out_path: Path | None = None, pretty: bool = True) -> Path:
     if out_path is None:
-        out_path = gz_path.with_suffix('')  # remove .gz
+        embedded_name = _gzip_original_filename(gz_path)
+        if embedded_name:
+            # Do not allow archive metadata to create nested output folders.
+            out_path = gz_path.with_name(Path(embedded_name).name)
+        else:
+            out_path = gz_path.with_suffix('')  # remove .gz
 
     # Read as text stream
     with gzip.open(gz_path, 'rt', encoding='utf-8') as f:
@@ -81,7 +118,13 @@ def pack(
         # Open the raw file and write gzip data through it so we can flush+fsync the raw fd.
         # Passing a raw file object as fileobj avoids handle/locking issues on Windows.
         with open(name, "wb") as raw:
-            with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=compresslevel, mtime=mtime) as gz:
+            with gzip.GzipFile(
+                fileobj=raw,
+                mode="wb",
+                filename=json_path.name,
+                compresslevel=compresslevel,
+                mtime=mtime,
+            ) as gz:
                 gz.write(packed)
             # Ensure all data is flushed to disk before replacing the target file.
             raw.flush()
@@ -94,12 +137,10 @@ def pack(
         # Atomic replace (same directory ensures atomicity on most platforms).
         os.replace(temp_path, out_gz)
     finally:
-        # Cleanup leftover temp file only if replace failed and the file still exists.
-        if temp_path is not None and temp_path.exists():
-            try:
+        # Cleanup leftover temp file. Ignore missing-file races only.
+        if temp_path is not None:
+            with suppress(FileNotFoundError):
                 temp_path.unlink()
-            except Exception:
-                pass
 
     return out_gz.resolve()
 
