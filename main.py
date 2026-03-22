@@ -16,7 +16,27 @@ from pathlib import Path
 from shutil import copy2
 from time import time
 
+from core_logic import (
+    base64_to_gz_bytes,
+    base64_to_json_text,
+    gz_bytes_to_base64,
+    json_text_to_base64,
+)
+
 logger = logging.getLogger(__name__)
+
+def _read_text_input(input_path: Path | None) -> str:
+    """Read text from a file or stdin when no file is provided."""
+    if input_path is None:
+        return sys.stdin.read()
+    return input_path.read_text(encoding="utf-8")
+
+
+def _write_bytes_output(output_path: Path, payload: bytes) -> Path:
+    """Write bytes payload to output path and return resolved path."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(payload)
+    return output_path.resolve()
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -303,6 +323,20 @@ def main():
     info_parser = subparsers.add_parser('info', help='Print metadata and integrity info for a .json.gz file.')
     info_parser.add_argument('file', type=Path, help='The .json.gz file to inspect.')
 
+    gz_to_b64_parser = subparsers.add_parser('gz-to-b64', help='Read .json.gz bytes and print Base64.')
+    gz_to_b64_parser.add_argument('file', type=Path, help='Input .json.gz file path.')
+
+    b64_to_gz_parser = subparsers.add_parser('b64-to-gz', help='Decode Base64 input and write .json.gz output.')
+    b64_to_gz_parser.add_argument('-i', '--input', type=Path, help='Optional Base64 text input file (default: stdin).')
+    b64_to_gz_parser.add_argument('-o', '--output', type=Path, required=True, help='Output .json.gz file path.')
+
+    b64_to_json_parser = subparsers.add_parser('b64-to-json', help='Decode Base64 input and output pretty JSON.')
+    b64_to_json_parser.add_argument('-i', '--input', type=Path, help='Optional Base64 text input file (default: stdin).')
+    b64_to_json_parser.add_argument('-o', '--output', type=Path, help='Optional JSON output file (default: stdout).')
+
+    json_to_b64_parser = subparsers.add_parser('json-to-b64', help='Read .json and print Base64 gz payload.')
+    json_to_b64_parser.add_argument('file', type=Path, help='Input .json file path.')
+
     # IDE debug sessions often start scripts without CLI args.
     # Print help and exit cleanly instead of raising argparse SystemExit(2).
     if len(sys.argv) == 1:
@@ -327,6 +361,24 @@ def main():
             print("Roundtrip OK: Data integrity verified." if ok else "Roundtrip mismatch: Data integrity failed.")
         elif args.command == 'info':
             print(json.dumps(info(args.file), indent=2))
+        elif args.command == 'gz-to-b64':
+            print(gz_bytes_to_base64(args.file.read_bytes()))
+        elif args.command == 'b64-to-gz':
+            b64_text = _read_text_input(args.input)
+            out = _write_bytes_output(args.output, base64_to_gz_bytes(b64_text))
+            print(f"Successfully wrote gzip to: {out}")
+        elif args.command == 'b64-to-json':
+            b64_text = _read_text_input(args.input)
+            pretty_json = base64_to_json_text(b64_text)
+            if args.output:
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_text(pretty_json, encoding='utf-8')
+                print(f"Successfully wrote JSON to: {args.output.resolve()}")
+            else:
+                print(pretty_json)
+        elif args.command == 'json-to-b64':
+            json_text = args.file.read_text(encoding='utf-8')
+            print(json_text_to_base64(json_text, filename=args.file.name, mtime=0))
     except Exception as e:
         print(f"Error: {e}")
         return 1

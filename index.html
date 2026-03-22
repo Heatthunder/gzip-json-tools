@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Save Editor (GZip ↔ JSON)</title>
+    <title>Save Editor (GZip ↔ JSON ↔ Base64)</title>
 
     <link
       rel="stylesheet"
@@ -40,9 +40,17 @@
         align-items: center;
         flex-wrap: wrap;
       }
-      #editor {
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 0.55rem 0.9rem;
+        cursor: pointer;
+        background: #2563eb;
+        color: #fff;
+      }
+      #editor,
+      #base64-text {
         width: 100%;
-        min-height: 420px;
         resize: vertical;
         padding: 0.75rem;
         border: 1px solid #d1d5db;
@@ -51,31 +59,49 @@
           "Liberation Mono", "Courier New", monospace;
         font-size: 0.9rem;
       }
-      #download-btn {
-        border: 0;
-        border-radius: 8px;
-        padding: 0.55rem 0.9rem;
-        cursor: pointer;
-        background: #2563eb;
-        color: #fff;
+      #editor {
+        min-height: 330px;
+      }
+      #base64-text {
+        min-height: 140px;
       }
       #status {
         min-height: 1.25rem;
         font-size: 0.95rem;
+      }
+      .section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
       }
     </style>
   </head>
   <body>
     <main class="app">
       <h1>Save Editor</h1>
+
       <div class="row">
         <input type="file" id="file-upload" accept=".gzip,.gz" />
-        <button id="download-btn" type="button">Repack &amp; Download</button>
+        <button id="download-btn" type="button">JSON → Download .json.gz</button>
       </div>
+
+      <div class="section-title">JSON Editor</div>
       <textarea
         id="editor"
-        placeholder="Load a .gz/.gzip save file to edit JSON here..."
+        placeholder="Decoded JSON appears here. You can edit and convert back."
       ></textarea>
+
+      <div class="row">
+        <button id="json-to-b64-btn" type="button">JSON → Base64</button>
+        <button id="b64-to-json-btn" type="button">Base64 → JSON</button>
+        <button id="b64-to-gz-btn" type="button">Base64 → Download .json.gz</button>
+      </div>
+
+      <div class="section-title">Base64</div>
+      <textarea
+        id="base64-text"
+        placeholder="Paste Base64 here, or load a .json.gz file to auto-fill this value."
+      ></textarea>
+
       <div id="status" role="status" aria-live="polite"></div>
     </main>
   </body>
