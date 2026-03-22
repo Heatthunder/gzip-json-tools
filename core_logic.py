@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import io
 import json
+from base64 import b64decode, b64encode
 
 
 def extract_logic(gz_bytes: bytes) -> str:
@@ -17,19 +18,43 @@ def extract_logic(gz_bytes: bytes) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
+def gzip_to_base64_logic(gz_bytes: bytes) -> str:
+    """Encode raw gzip bytes to a Base64 ASCII string."""
+    return b64encode(gz_bytes).decode("ascii")
+
+
+def base64_to_gzip_logic(base64_str: str) -> bytes:
+    """Decode a Base64 string into raw gzip bytes."""
+    normalized = "".join(base64_str.split())
+    return b64decode(normalized, validate=True)
+
+
+def extract_base64_logic(base64_str: str) -> str:
+    """Decode Base64-encoded gzip data and return pretty JSON text."""
+    return extract_logic(base64_to_gzip_logic(base64_str))
+
+
 def pack_logic(json_str: str, filename: str = "save.json") -> bytes:
     """Minify JSON text and return gzip-compressed bytes.
 
-    The filename parameter is accepted for compatibility with save metadata
-    workflows, even though this routine only returns in-memory bytes.
+    The filename is written into the gzip member header so metadata-aware
+    tooling can preserve and round-trip original-name semantics.
     """
-    _ = filename
-
     data = json.loads(json_str)
     minified_json = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
     payload = minified_json.encode("utf-8")
 
     with io.BytesIO() as output:
-        with gzip.GzipFile(fileobj=output, mode="wb") as gz_file:
+        with gzip.GzipFile(
+            filename=filename,
+            fileobj=output,
+            mode="wb",
+            mtime=0,
+        ) as gz_file:
             gz_file.write(payload)
         return output.getvalue()
+
+
+def pack_base64_logic(json_str: str, filename: str = "save.json") -> str:
+    """Minify JSON, gzip it, and return a Base64 string."""
+    return gzip_to_base64_logic(pack_logic(json_str, filename=filename))
