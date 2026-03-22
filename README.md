@@ -123,3 +123,22 @@ info      Print metadata and integrity info
 - **Windows path issues**: wrap paths with spaces in double quotes (for example: `python main.py pack "my save.json" -o "my save.json.gz"`).
 - **`SystemExit: 2` / `the following arguments are required: command`**: the script was started without a subcommand. Add one of: `extract`, `pack`, `backup`, `roundtrip`, `info`.
 - **Temp file errors during `pack` on Windows**: run from a normal local folder (not cloud-synced), and retry. Some sync/AV tools can interfere with temporary files; the tool now warns when the destination folder appears protected/unwritable.
+
+## License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**.
+
+### Quick Summary
+* **Share** — You can copy and redistribute the material in any medium or format.
+* **Adapt** — You can remix, transform, and build upon the material.
+* **Attribution** — You must give appropriate credit and link to the license.
+* **NonCommercial** — You may not use this work for commercial purposes.
+* **ShareAlike** — If you modify this work, you must distribute it under this same license.
+
+---
+
+### How to Attribute
+If you use or adapt this work, please use the following format:
+> "**[Project Title]**" by **[Your Name/Org]**, used under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+*For the full legal terms, please see the [LICENSE.md](./LICENSE.md) file.*
