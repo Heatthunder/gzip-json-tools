@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import logging
 import sys
+from base64 import b64decode, b64encode
 from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
@@ -276,6 +277,45 @@ def info(gz_path: Path) -> dict[str, str | int]:
         "keys_top_level": keys_top_level,
     }
 
+
+def gz_to_base64(gz_path: Path) -> str:
+    """Read gzip bytes from disk and return a Base64 string."""
+    return b64encode(gz_path.read_bytes()).decode("ascii")
+
+
+def base64_to_gz(base64_path: Path, out_gz: Path) -> Path:
+    """Decode Base64 text file to gzip bytes and write to disk."""
+    encoded_text = base64_path.read_text(encoding="utf-8")
+    gz_bytes = b64decode("".join(encoded_text.split()), validate=True)
+    out_gz.write_bytes(gz_bytes)
+    return out_gz.resolve()
+
+
+def base64_to_json(base64_path: Path, out_json: Path, pretty: bool = True) -> Path:
+    """Decode Base64 text file and extract JSON to disk."""
+    encoded_text = base64_path.read_text(encoding="utf-8")
+    gz_bytes = b64decode("".join(encoded_text.split()), validate=True)
+    text = gzip.decompress(gz_bytes).decode("utf-8")
+    obj = json.loads(text)
+    with out_json.open("w", encoding="utf-8") as f:
+        if pretty:
+            json.dump(obj, f, indent=2, ensure_ascii=False)
+        else:
+            json.dump(obj, f, separators=(",", ":"), ensure_ascii=False)
+    return out_json.resolve()
+
+
+def json_to_base64(json_path: Path) -> str:
+    """Pack JSON as gzip and return a Base64 string."""
+    text = json_path.read_text(encoding="utf-8")
+    obj = json.loads(text)
+    packed = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    with tempfile.SpooledTemporaryFile() as tmp:
+        with gzip.GzipFile(fileobj=tmp, mode="wb", filename=json_path.name, mtime=0) as gz:
+            gz.write(packed)
+        tmp.seek(0)
+        return b64encode(tmp.read()).decode("ascii")
+
 def main():
     parser = argparse.ArgumentParser(
         description="SaveGzip: A tool to extract, pack, verify, and backup gzipped JSON files."
@@ -303,6 +343,35 @@ def main():
     info_parser = subparsers.add_parser('info', help='Print metadata and integrity info for a .json.gz file.')
     info_parser.add_argument('file', type=Path, help='The .json.gz file to inspect.')
 
+    gz_to_b64_parser = subparsers.add_parser(
+        'gz-to-b64',
+        help='Convert a .json.gz file into a Base64 string.',
+    )
+    gz_to_b64_parser.add_argument('file', type=Path, help='The .json.gz file to encode.')
+    gz_to_b64_parser.add_argument('-o', '--output', type=Path, help='Optional output text file path.')
+
+    b64_to_gz_parser = subparsers.add_parser(
+        'b64-to-gz',
+        help='Decode a Base64 text file into a .json.gz file.',
+    )
+    b64_to_gz_parser.add_argument('file', type=Path, help='Base64 text file input.')
+    b64_to_gz_parser.add_argument('-o', '--output', type=Path, required=True, help='Output .json.gz path.')
+
+    b64_to_json_parser = subparsers.add_parser(
+        'b64-to-json',
+        help='Decode Base64 text file and extract pretty JSON.',
+    )
+    b64_to_json_parser.add_argument('file', type=Path, help='Base64 text file input.')
+    b64_to_json_parser.add_argument('-o', '--output', type=Path, required=True, help='Output JSON path.')
+    b64_to_json_parser.add_argument('--no-pretty', action='store_true', help='Disable pretty JSON output.')
+
+    json_to_b64_parser = subparsers.add_parser(
+        'json-to-b64',
+        help='Pack JSON to gzip and output a Base64 string.',
+    )
+    json_to_b64_parser.add_argument('file', type=Path, help='JSON file input.')
+    json_to_b64_parser.add_argument('-o', '--output', type=Path, help='Optional output text file path.')
+
     # IDE debug sessions often start scripts without CLI args.
     # Print help and exit cleanly instead of raising argparse SystemExit(2).
     if len(sys.argv) == 1:
@@ -327,6 +396,26 @@ def main():
             print("Roundtrip OK: Data integrity verified." if ok else "Roundtrip mismatch: Data integrity failed.")
         elif args.command == 'info':
             print(json.dumps(info(args.file), indent=2))
+        elif args.command == 'gz-to-b64':
+            encoded = gz_to_base64(args.file)
+            if args.output:
+                args.output.write_text(encoded, encoding="utf-8")
+                print(f"Successfully wrote Base64 to: {args.output.resolve()}")
+            else:
+                print(encoded)
+        elif args.command == 'b64-to-gz':
+            out = base64_to_gz(args.file, args.output)
+            print(f"Successfully wrote gzip file to: {out}")
+        elif args.command == 'b64-to-json':
+            out = base64_to_json(args.file, args.output, pretty=not args.no_pretty)
+            print(f"Successfully extracted JSON to: {out}")
+        elif args.command == 'json-to-b64':
+            encoded = json_to_base64(args.file)
+            if args.output:
+                args.output.write_text(encoded, encoding="utf-8")
+                print(f"Successfully wrote Base64 to: {args.output.resolve()}")
+            else:
+                print(encoded)
     except Exception as e:
         print(f"Error: {e}")
         return 1
