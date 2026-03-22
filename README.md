@@ -109,6 +109,8 @@ info      Print metadata and integrity info
 
 - Always run `backup` before manual save edits.
 - Use `--mtime 0` while packing for reproducible gzip output.
+- `extract` uses the embedded gzip original filename when available, but sanitizes it and falls back to the `.gz`-stripped name when unsafe.
+- Embedded filenames are read from the **first gzip member** only (concatenated multi-member `.gz` files are not fully scanned for naming metadata).
 - If byte-for-byte output differs after repacking, use `roundtrip` to confirm the JSON data still matches.
 - Keep an untouched original save in a separate folder so you can recover quickly if an edit breaks loading.
 
@@ -119,4 +121,4 @@ info      Print metadata and integrity info
 - **"Error: File not found"**: double-check the path and run command from the correct folder.
 - **Windows path issues**: wrap paths with spaces in double quotes (for example: `python main.py pack "my save.json" -o "my save.json.gz"`).
 - **`SystemExit: 2` / `the following arguments are required: command`**: the script was started without a subcommand. Add one of: `extract`, `pack`, `backup`, `roundtrip`, `info`.
-- **Temp file errors during `pack` on Windows**: run from a normal local folder (not cloud-synced), and retry. Some sync/AV tools can interfere with temporary files.
+- **Temp file errors during `pack` on Windows**: run from a normal local folder (not cloud-synced), and retry. Some sync/AV tools can interfere with temporary files; the tool now warns when the destination folder appears protected/unwritable.

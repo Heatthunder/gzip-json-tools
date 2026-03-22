@@ -77,6 +77,17 @@ def _dir_is_writable(directory: Path) -> bool:
                 probe.unlink()
 
 
+def _is_windows_reserved_name(name: str) -> bool:
+    """Return True for Windows reserved device names."""
+    stem = name.split('.')[0].upper()
+    reserved = {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    }
+    return stem in reserved
+
+
 def _default_extract_path(gz_path: Path, embedded_name: str | None) -> Path:
     """Resolve a safe default extraction path from gzip metadata."""
     fallback = gz_path.with_suffix('')
@@ -92,9 +103,14 @@ def _default_extract_path(gz_path: Path, embedded_name: str | None) -> Path:
     if any(ord(ch) < 0x20 or ch == "\x00" for ch in basename):
         return fallback
 
-    # Keep names cross-platform safe for common Windows/Unix extraction scenarios.
-    if any(ch in set('<>:"/\\|?*') for ch in basename):
-        return fallback
+    if sys.platform.startswith("win"):
+        # Windows rejects these characters and has reserved device names.
+        if any(ch in set('<>:"/\\|?*') for ch in basename):
+            return fallback
+        if basename.endswith((" ", ".")):
+            return fallback
+        if _is_windows_reserved_name(basename):
+            return fallback
 
     try:
         return gz_path.with_name(basename)
