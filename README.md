@@ -31,15 +31,6 @@ Open a terminal (Command Prompt, PowerShell, macOS Terminal, Linux shell), then:
 1. **Go to the project folder:**
 ```bash
 cd /path/to/Gzip-encoder-decoder-python-system
-
-1. **Go to the project folder:**
-   ```bash
-   cd /path/to/Gzip-encoder-decoder-python-system
-
-1. Go to the project folder:
-
-```bash
-cd /path/to/Gzip-encoder-decoder-python-system
 ```
 
 2. Check Python is available:
