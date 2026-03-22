@@ -1,0 +1,6 @@
+{
+  "packages": ["gzip", "json"],
+  "files": {
+    "./core_logic.py": "./core_logic.py"
+  }
+}
