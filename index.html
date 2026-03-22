@@ -42,7 +42,18 @@
       }
       #editor {
         width: 100%;
-        min-height: 420px;
+        min-height: 260px;
+        resize: vertical;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.9rem;
+      }
+      #base64-editor {
+        width: 100%;
+        min-height: 180px;
         resize: vertical;
         padding: 0.75rem;
         border: 1px solid #d1d5db;
@@ -59,6 +70,20 @@
         background: #2563eb;
         color: #fff;
       }
+      .secondary-btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 0.55rem 0.9rem;
+        cursor: pointer;
+        background: #374151;
+        color: #f9fafb;
+      }
+      #drop-zone {
+        border: 2px dashed #93c5fd;
+        border-radius: 10px;
+        padding: 0.9rem;
+        background: #eff6ff;
+      }
       #status {
         min-height: 1.25rem;
         font-size: 0.95rem;
@@ -68,13 +93,34 @@
   <body>
     <main class="app">
       <h1>Save Editor</h1>
+      <div id="drop-zone">
+        Drag &amp; drop a <code>.gz</code> file here, or use the picker below.
+      </div>
       <div class="row">
         <input type="file" id="file-upload" accept=".gzip,.gz" />
         <button id="download-btn" type="button">Repack &amp; Download</button>
+        <button id="gz-to-base64-btn" type="button" class="secondary-btn">
+          .gz → Base64
+        </button>
       </div>
       <textarea
         id="editor"
         placeholder="Load a .gz/.gzip save file to edit JSON here..."
+      ></textarea>
+      <div class="row">
+        <button id="json-to-base64-btn" type="button" class="secondary-btn">
+          JSON → Base64
+        </button>
+        <button id="base64-to-json-btn" type="button" class="secondary-btn">
+          Base64 → JSON
+        </button>
+        <button id="base64-to-gz-btn" type="button" class="secondary-btn">
+          Base64 → .gz
+        </button>
+      </div>
+      <textarea
+        id="base64-editor"
+        placeholder="Paste Base64 export strings here (whitespace/newlines are allowed)."
       ></textarea>
       <div id="status" role="status" aria-live="polite"></div>
     </main>
