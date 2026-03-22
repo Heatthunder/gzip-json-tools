@@ -69,28 +69,37 @@ def pack(
     # Minify into bytes
     packed = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
 
-    # Atomic write: write to a temp file in the destination directory, then replace.
-    # NamedTemporaryFile with delete=False keeps Windows compatibility for reopen/replace.
-    temp_file: Path | None = None
+    # Atomic write: create a temp filename in destination directory, write gzip to that
+    # filename directly, then replace target file in a single operation.
+    # Use mkstemp to get a stable filename on disk (works reliably on Windows).
+    temp_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode='wb',
-            delete=False,
-            dir=out_gz.parent,
-            prefix="tmp_pack_",
-            suffix=".gz",
-        ) as tmp_file:
-            temp_file = Path(tmp_file.name)
-            with gzip.GzipFile(fileobj=tmp_file, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
-                f.write(packed)
-            # Flush buffers so replace sees fully-written bytes.
-            tmp_file.flush()
-            os.fsync(tmp_file.fileno())
-        os.replace(temp_file, out_gz)
+        fd, name = tempfile.mkstemp(dir=out_gz.parent, prefix="tmp_pack_", suffix=".gz")
+        os.close(fd)
+        temp_path = Path(name)
+
+        # Open the raw file and write gzip data through it so we can flush+fsync the raw fd.
+        # Passing a raw file object as fileobj avoids handle/locking issues on Windows.
+        with open(name, "wb") as raw:
+            with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=compresslevel, mtime=mtime) as gz:
+                gz.write(packed)
+            # Ensure all data is flushed to disk before replacing the target file.
+            raw.flush()
+            os.fsync(raw.fileno())
+
+        # Sanity check: ensure the temp file still exists before attempting replace.
+        if not temp_path.exists():
+            raise RuntimeError(f"Temporary gzip file disappeared before replace: {temp_path}")
+
+        # Atomic replace (same directory ensures atomicity on most platforms).
+        os.replace(temp_path, out_gz)
     finally:
-        # Cleanup in case os.replace failed
-        if temp_file is not None and temp_file.exists():
-            temp_file.unlink()
+        # Cleanup leftover temp file only if replace failed and the file still exists.
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
 
     return out_gz.resolve()
 
