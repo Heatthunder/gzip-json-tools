@@ -9,8 +9,10 @@ from pyscript import document, when
 from core_logic import (
     base64_to_gz_bytes,
     base64_to_json_text,
+    extract_logic,
     gz_bytes_to_base64,
     json_text_to_base64,
+    pack_logic,
 )
 
 
@@ -55,7 +57,7 @@ async def on_file_selected(event):
         gz_bytes = bytes(Uint8Array.new(buffer).to_py())
 
         base64_el.value = gz_bytes_to_base64(gz_bytes)
-        editor_el.value = base64_to_json_text(base64_el.value)
+        editor_el.value = extract_logic(gz_bytes)
         set_status(f"Loaded and converted: {file_obj.name}")
     except Exception as exc:
         set_status(f"Failed to load file: {exc}", is_error=True)
@@ -99,7 +101,7 @@ def on_download_clicked(event):
     """Pack editor JSON as gzip and trigger download."""
     try:
         json_text = editor_el.value or ""
-        gz_bytes = base64_to_gz_bytes(json_text_to_base64(json_text, filename="save.json", mtime=0))
+        gz_bytes = pack_logic(json_text, filename="save.json", mtime=0)
         _trigger_download("save.json.gz", gz_bytes, "application/gzip")
         set_status("Packed JSON editor and downloaded save.json.gz")
     except Exception as exc:

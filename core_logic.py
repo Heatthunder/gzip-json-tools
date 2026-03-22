@@ -13,6 +13,17 @@ INVALID_GZIP_MESSAGE = "Invalid gzip data."
 INVALID_JSON_MESSAGE = "Invalid JSON input."
 
 
+def _assert_valid_gzip(gz_bytes: bytes) -> None:
+    """Validate gzip framing/integrity and raise standardized error on failure."""
+    try:
+        with io.BytesIO(gz_bytes) as source:
+            with gzip.GzipFile(fileobj=source, mode="rb") as gz_file:
+                while gz_file.read(65536):
+                    pass
+    except (OSError, EOFError) as exc:
+        raise ValueError(INVALID_GZIP_MESSAGE) from exc
+
+
 def extract_logic(gz_bytes: bytes) -> str:
     """Decompress gzip bytes and return pretty-printed JSON text."""
     try:
@@ -56,12 +67,15 @@ def gz_bytes_to_base64(gz_bytes: bytes) -> str:
 
 
 def base64_to_gz_bytes(b64: str) -> bytes:
-    """Decode Base64 text to gzip bytes with strict Base64 validation."""
+    """Decode Base64 text to gzip bytes with strict Base64 and gzip validation."""
     normalized = b64.strip()
     try:
-        return base64.b64decode(normalized, validate=True)
+        gz_bytes = base64.b64decode(normalized, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError(INVALID_BASE64_MESSAGE) from exc
+
+    _assert_valid_gzip(gz_bytes)
+    return gz_bytes
 
 
 def base64_to_json_text(b64: str) -> str:
