@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 
-from js import Array, Blob, Uint8Array, URL, document as js_document
+from js import Blob, Uint8Array, URL, document as js_document
 from pyodide.ffi import to_js
 from pyscript import document, when
 
@@ -58,7 +58,7 @@ def on_download_clicked(event):
 
         uint8_data = Uint8Array.new(len(packed_bytes))
         uint8_data.set(to_js(list(packed_bytes)))
-        blob = Blob.new(Array.new([uint8_data]), to_js({"type": "application/gzip"}))
+        blob = Blob.new([uint8_data], to_js({"type": "application/gzip"}))
 
         download_url = URL.createObjectURL(blob)
         anchor = js_document.createElement("a")
