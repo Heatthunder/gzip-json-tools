@@ -119,3 +119,4 @@ info      Print metadata and integrity info
 - **"Error: File not found"**: double-check the path and run command from the correct folder.
 - **Windows path issues**: wrap paths with spaces in double quotes (for example: `python main.py pack "my save.json" -o "my save.json.gz"`).
 - **`SystemExit: 2` / `the following arguments are required: command`**: the script was started without a subcommand. Add one of: `extract`, `pack`, `backup`, `roundtrip`, `info`.
+- **Temp file errors during `pack` on Windows**: run from a normal local folder (not cloud-synced), and retry. Some sync/AV tools can interfere with temporary files.

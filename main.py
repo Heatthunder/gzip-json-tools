@@ -71,23 +71,25 @@ def pack(
 
     # Atomic write: write to a temp file in the destination directory, then replace.
     # NamedTemporaryFile with delete=False keeps Windows compatibility for reopen/replace.
-    with tempfile.NamedTemporaryFile(
-        mode='wb',
-        delete=False,
-        dir=out_gz.parent,
-        prefix="tmp_pack_",
-        suffix=".gz",
-    ) as tmp_file:
-        temp_file = Path(tmp_file.name)
-
+    temp_file: Path | None = None
     try:
-        with temp_file.open('wb') as raw_f:
-            with gzip.GzipFile(fileobj=raw_f, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
+        with tempfile.NamedTemporaryFile(
+            mode='wb',
+            delete=False,
+            dir=out_gz.parent,
+            prefix="tmp_pack_",
+            suffix=".gz",
+        ) as tmp_file:
+            temp_file = Path(tmp_file.name)
+            with gzip.GzipFile(fileobj=tmp_file, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
                 f.write(packed)
+            # Flush buffers so replace sees fully-written bytes.
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
         os.replace(temp_file, out_gz)
     finally:
         # Cleanup in case os.replace failed
-        if temp_file.exists():
+        if temp_file is not None and temp_file.exists():
             temp_file.unlink()
 
     return out_gz.resolve()
