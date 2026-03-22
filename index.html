@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Save Editor (GZip ↔ JSON)</title>
+
+    <link
+      rel="stylesheet"
+      href="https://pyscript.net/releases/2026.3.1/core.css"
+    />
+    <script
+      type="module"
+      src="https://pyscript.net/releases/2026.3.1/core.js"
+    ></script>
+
+    <script type="py" src="./web_main.py" config="./conf.json"></script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem;
+        background: #f7f7f9;
+        color: #1f2937;
+      }
+      .app {
+        max-width: 900px;
+        margin: 0 auto;
+        display: grid;
+        gap: 0.85rem;
+      }
+      .row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #editor {
+        width: 100%;
+        min-height: 420px;
+        resize: vertical;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.9rem;
+      }
+      #download-btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 0.55rem 0.9rem;
+        cursor: pointer;
+        background: #2563eb;
+        color: #fff;
+      }
+      #status {
+        min-height: 1.25rem;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <h1>Save Editor</h1>
+      <div class="row">
+        <input type="file" id="file-upload" accept=".gzip,.gz" />
+        <button id="download-btn" type="button">Repack &amp; Download</button>
+      </div>
+      <textarea
+        id="editor"
+        placeholder="Load a .gz/.gzip save file to edit JSON here..."
+      ></textarea>
+      <div id="status" role="status" aria-live="polite"></div>
+    </main>
+  </body>
+</html>
