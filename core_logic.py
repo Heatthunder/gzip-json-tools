@@ -13,6 +13,11 @@ INVALID_GZIP_MESSAGE = "Invalid gzip data."
 INVALID_JSON_MESSAGE = "Invalid JSON input."
 
 
+def _normalize_base64_text(b64: str) -> str:
+    """Remove transport whitespace so wrapped Base64 still decodes reliably."""
+    return "".join(b64.split())
+
+
 def _assert_valid_gzip(gz_bytes: bytes) -> None:
     """Validate gzip framing/integrity and raise standardized error on failure."""
     try:
@@ -68,7 +73,7 @@ def gz_bytes_to_base64(gz_bytes: bytes) -> str:
 
 def base64_to_gz_bytes(b64: str) -> bytes:
     """Decode Base64 text to gzip bytes with strict Base64 and gzip validation."""
-    normalized = b64.strip()
+    normalized = _normalize_base64_text(b64)
     try:
         gz_bytes = base64.b64decode(normalized, validate=True)
     except (binascii.Error, ValueError) as exc:

@@ -31,8 +31,15 @@ logger = logging.getLogger(__name__)
 def _read_text_input(input_path: Path | None) -> str:
     """Read text from a file or stdin when no file is provided."""
     if input_path is None:
+        if sys.stdin.isatty():
+            raise ValueError("No Base64 input provided. Pass --input or pipe data via stdin.")
         return sys.stdin.read()
     return input_path.read_text(encoding="utf-8")
+
+
+def _normalize_base64_text(b64_text: str) -> str:
+    """Remove transport whitespace so wrapped Base64 still decodes reliably."""
+    return "".join(b64_text.split())
 
 
 def _write_bytes_output(output_path: Path, payload: bytes) -> Path:
@@ -48,7 +55,7 @@ def _decode_base64_gzip_bytes(b64_text: str) -> bytes:
     This avoids full decompression in `b64-to-gz` so large/untrusted payloads
     do not incur avoidable CPU cost during a pass-through conversion.
     """
-    normalized = b64_text.strip()
+    normalized = _normalize_base64_text(b64_text)
     try:
         gz_bytes = base64.b64decode(normalized, validate=True)
     except (binascii.Error, ValueError) as exc:
