@@ -118,7 +118,45 @@ extract   Extract a gzipped JSON file (pretty output by default)
 pack      Pack a JSON file into gzip (minified JSON)
 backup    Create a timestamped backup copy of a file
 roundtrip Extract -> Pack -> Verify equivalence
-info      Print metadata and integrity info
+info        Print metadata and integrity info
+to-base64   Encode a file as Base64 text
+from-base64 Decode Base64 text into a file
+```
+
+
+## Base64 and pipeline examples
+
+### Windows PowerShell
+
+```powershell
+# Encode gzip bytes to Base64 and write to a text file
+python .\main.py to-base64 .\save.json.gz -o .\save.b64.txt
+
+# Decode from a positional Base64 value
+python .\main.py from-base64 "H4sIAAAAA..." -o .\restored.json.gz
+
+# Decode from stdin pipeline
+Get-Content .\save.b64.txt | python .\main.py from-base64 -o .\restored.json.gz
+```
+
+### macOS/Linux shell
+
+```bash
+# Encode gzip bytes to Base64 (stdout by default)
+python3 main.py to-base64 ./save.json.gz
+
+# Save long Base64 output to file
+python3 main.py to-base64 ./save.json.gz -o ./save.b64.txt
+
+# Decode using --input-file
+python3 main.py from-base64 --input-file ./save.b64.txt -o ./restored.json.gz
+```
+
+### Redirected pipelines
+
+```bash
+# Encode then decode using stdin fallback
+python3 main.py to-base64 ./save.json.gz | python3 main.py from-base64 -o ./restored.json.gz
 ```
 
 ## Tips for game-save workflows
