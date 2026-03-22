@@ -33,7 +33,7 @@ def _infer_json_filename(upload_name: str) -> str:
     if upload_name.lower().endswith(".gz"):
         return f"{upload_name[:-3]}.json"
     if upload_name.lower().endswith(".gzip"):
-        return f"{upload_name[:-5]}.json"
+        return f"{upload_name[:-6]}.json"
     return "save.json"
 
 

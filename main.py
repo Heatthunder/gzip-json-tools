@@ -11,13 +11,16 @@ import argparse
 import hashlib
 import logging
 import sys
+import base64
+import binascii
 from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
 from time import time
 
 from core_logic import (
-    base64_to_gz_bytes,
+    INVALID_BASE64_MESSAGE,
+    INVALID_GZIP_MESSAGE,
     base64_to_json_text,
     gz_bytes_to_base64,
     json_text_to_base64,
@@ -37,6 +40,23 @@ def _write_bytes_output(output_path: Path, payload: bytes) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(payload)
     return output_path.resolve()
+
+
+def _decode_base64_gzip_bytes(b64_text: str) -> bytes:
+    """Decode Base64 text to gzip bytes with strict Base64 + header checks.
+
+    This avoids full decompression in `b64-to-gz` so large/untrusted payloads
+    do not incur avoidable CPU cost during a pass-through conversion.
+    """
+    normalized = b64_text.strip()
+    try:
+        gz_bytes = base64.b64decode(normalized, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(INVALID_BASE64_MESSAGE) from exc
+
+    if len(gz_bytes) < 2 or gz_bytes[:2] != b"\x1f\x8b":
+        raise ValueError(INVALID_GZIP_MESSAGE)
+    return gz_bytes
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -365,7 +385,7 @@ def main():
             print(gz_bytes_to_base64(args.file.read_bytes()))
         elif args.command == 'b64-to-gz':
             b64_text = _read_text_input(args.input)
-            out = _write_bytes_output(args.output, base64_to_gz_bytes(b64_text))
+            out = _write_bytes_output(args.output, _decode_base64_gzip_bytes(b64_text))
             print(f"Successfully wrote gzip to: {out}")
         elif args.command == 'b64-to-json':
             b64_text = _read_text_input(args.input)
