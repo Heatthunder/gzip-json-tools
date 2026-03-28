@@ -5,7 +5,7 @@
 ## Purpose
 Many modern games and applications store data as **minified JSON** compressed with **Gzip** to save space. This makes manual editing nearly impossible without the right tools.
 
-**Specifically built for:** [Text-Adventure-Game-REBUILT](https://github.com/Heatthunder/Text-Adventure-Game-REBUILT)
+**Specifically built for:** [Text-Adventure-Game-REBUILT](https://github.com/Heatthunder/Text-Adventure-Game-REBUILT) and [REBUILT-Web-Build](https://github.com/Heatthunder/Text-Adventure-Game-REBUILT-Web-Build)
 
 This utility provides a reliable "roundtrip" workflow for developers and modders to:
 1. **Decompress** and "pretty-print" JSON for easy manual editing.
