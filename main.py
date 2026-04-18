@@ -11,8 +11,6 @@ import argparse
 import hashlib
 import logging
 import sys
-import base64
-import binascii
 from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
@@ -20,7 +18,7 @@ from time import time
 
 from core_logic import (
     INVALID_BASE64_MESSAGE,
-    INVALID_GZIP_MESSAGE,
+    base64_to_gz_bytes,
     base64_to_json_text,
     gz_bytes_to_base64,
     json_text_to_base64,
@@ -50,20 +48,11 @@ def _write_bytes_output(output_path: Path, payload: bytes) -> Path:
 
 
 def _decode_base64_gzip_bytes(b64_text: str) -> bytes:
-    """Decode Base64 text to gzip bytes with strict Base64 + header checks.
-
-    This avoids full decompression in `b64-to-gz` so large/untrusted payloads
-    do not incur avoidable CPU cost during a pass-through conversion.
-    """
+    """Decode Base64 text to gzip bytes with whitespace normalization."""
     normalized = _normalize_base64_text(b64_text)
-    try:
-        gz_bytes = base64.b64decode(normalized, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError(INVALID_BASE64_MESSAGE) from exc
-
-    if len(gz_bytes) < 2 or gz_bytes[:2] != b"\x1f\x8b":
-        raise ValueError(INVALID_GZIP_MESSAGE)
-    return gz_bytes
+    if not normalized:
+        raise ValueError(INVALID_BASE64_MESSAGE)
+    return base64_to_gz_bytes(normalized)
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -196,7 +185,7 @@ def extract(gz_path: Path, out_path: Path | None = None, pretty: bool = True) ->
 def pack(
     json_path: Path,
     out_gz: Path | None = None,
-    compresslevel: int = 6,
+    compresslevel: int = 9,
     mtime: int = 0,
 ) -> Path:
     if out_gz is None:
@@ -220,7 +209,7 @@ def pack(
         raise RuntimeError(f"Input JSON invalid. Cannot pack: {e}")
 
     # Minify into bytes
-    packed = json.dumps(obj, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    packed = json.dumps(obj, separators=(',', ':')).encode()
 
     # Atomic write: create a temp filename in destination directory, write gzip to that
     # filename directly, then replace target file in a single operation.
@@ -237,7 +226,7 @@ def pack(
             with gzip.GzipFile(
                 fileobj=raw,
                 mode="wb",
-                filename=json_path.name,
+                filename="",
                 compresslevel=compresslevel,
                 mtime=mtime,
             ) as gz:
@@ -338,7 +327,7 @@ def main():
     pack_parser = subparsers.add_parser('pack', help='Pack a JSON file into a .gz file (minifies JSON).')
     pack_parser.add_argument('file', type=Path, help='The .json file to pack.')
     pack_parser.add_argument('-o', '--output', type=Path, help='Optional output .gz path.')
-    pack_parser.add_argument('-l', '--level', type=int, default=6, help='gzip compression level (0-9).')
+    pack_parser.add_argument('-l', '--level', type=int, default=9, help='gzip compression level (0-9).')
     pack_parser.add_argument('--mtime', type=int, default=0, help='gzip mtime. Use 0 for reproducible builds.')
 
     backup_parser = subparsers.add_parser('backup', help='Create a timestamped backup copy of a file.')
@@ -405,7 +394,7 @@ def main():
                 print(pretty_json)
         elif args.command == 'json-to-b64':
             json_text = args.file.read_text(encoding='utf-8')
-            print(json_text_to_base64(json_text, filename=args.file.name, mtime=0))
+            print(json_text_to_base64(json_text, mtime=0))
     except Exception as e:
         print(f"Error: {e}")
         return 1
